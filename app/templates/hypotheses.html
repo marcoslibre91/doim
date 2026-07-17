@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Registro delle ipotesi</h1>
-<div class="warn">La regola d'oro del progetto: nessuna riga di infrastruttura che non serva a falsificare
-un'ipotesi numerata. Ogni ipotesi è falsa finché non dimostrata.</div>
+<div class="intro">
+  Sono le convinzioni su cui poggia tutto il progetto, scritte come affermazioni da <strong>dimostrare o smontare</strong>.
+  Ognuna ha un test e un «kill criterion» (la condizione che la falsifica). La regola d'oro:
+  non si costruisce nulla che non serva a testarne una. Ogni ipotesi è falsa finché non provata.
+</div>
 
 {% for h in rows %}
 <div class="card">

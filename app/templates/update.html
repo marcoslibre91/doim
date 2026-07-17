@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Aggiornamento del giorno — {{ opp.name }}</h1>
+<div class="intro">
+  Inserisci i valori che hai osservato oggi. <strong>Compila solo i segnali che hai</strong>: quelli lasciati vuoti
+  vengono ignorati. Data e fonte valgono per tutta la schermata. Un solo salvataggio registra tutto.
+</div>
+
+<form method="post" action="/opportunities/{{ opp.id }}/update">
+  <div class="card">
+    <div class="inline" style="margin-bottom:.7rem">
+      <label>Data di osservazione
+        <input name="observed_at" type="date" value="{{ today }}"></label>
+      <label>Fonte (per tutti i valori)
+        <select name="source_id"><option value="">—</option>
+          {% for s in sources %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+    </div>
+
+    <table>
+      <tr><th>Segnale</th><th>Tier</th><th>Ultimo valore</th><th>Nuovo valore</th><th>Cosa misura</th></tr>
+      {% for r in rows %}
+      <tr>
+        <td><strong>{{ r.signal.key }}</strong></td>
+        <td><span class="pill nd">{{ r.signal.tier }}</span></td>
+        <td class="muted">{% if r.last %}{{ r.last.value if r.last.value is not none else r.last.value_text }} <span class="muted">({{ r.last.observed_at[:10] }})</span>{% else %}—{% endif %}</td>
+        <td><input name="sig_{{ r.signal.id }}" type="number" step="any" placeholder="{{ r.last.value if r.last and r.last.value is not none else '' }}" style="width:9rem"></td>
+        <td class="muted" style="max-width:340px">{{ r.signal.definition }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="margin-top:1rem; display:flex; gap:.6rem">
+      <button>Salva osservazioni</button>
+      <a class="btn ghost" href="/opportunities/{{ opp.id }}">Annulla</a>
+    </div>
+  </div>
+</form>
+<p class="muted">Legenda tier — <strong>A</strong>: osservato direttamente · <strong>B</strong>: stima (con errore) · <strong>C</strong>: non conoscibile.
+Le osservazioni sono append-only: non si correggono, si ri-osserva.</p>
+{% endblock %}

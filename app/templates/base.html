@@ -5,52 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DOIM — Decision Intelligence</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#6b7686; --line:#e3e7ee;
-          --verde:#1e8e5a; --giallo:#b98a00; --rosso:#c0392b; --nd:#8a94a3; --accent:#2c5fad; }
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b232f; --muted:#67717f; --line:#e4e8ef;
+          --verde:#1e8e5a; --verde-bg:#e7f5ee; --giallo:#b98a00; --giallo-bg:#fbf3dc;
+          --rosso:#c0392b; --rosso-bg:#fbe9e7; --nd:#8a94a3; --nd-bg:#eef1f5;
+          --accent:#2c5fad; --accent-dark:#204a8a; }
   * { box-sizing:border-box; }
   body { margin:0; font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
-  header { background:#16233a; color:#fff; padding:.7rem 1.2rem; display:flex; gap:1.4rem; align-items:baseline; flex-wrap:wrap; }
-  header .logo { font-weight:700; letter-spacing:.06em; }
-  header .logo span { color:#7fb0f5; }
-  header nav a { color:#c9d6ea; text-decoration:none; margin-right:1rem; font-size:.92rem; }
-  header nav a:hover { color:#fff; }
-  main { max-width:1150px; margin:1.4rem auto; padding:0 1.2rem; }
-  h1 { font-size:1.35rem; margin:.2rem 0 1rem; }
-  h2 { font-size:1.05rem; margin:1.6rem 0 .6rem; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1rem 1.2rem; margin-bottom:1rem; }
+  header { background:#16233a; color:#fff; padding:.65rem 1.2rem; display:flex; gap:1.2rem; align-items:center; flex-wrap:wrap; position:sticky; top:0; z-index:20; }
+  header .logo { font-weight:700; letter-spacing:.05em; font-size:1.02rem; }
+  header .logo span { color:#7fb0f5; font-weight:400; }
+  header nav { display:flex; gap:.2rem; flex-wrap:wrap; }
+  header nav a { color:#c9d6ea; text-decoration:none; padding:.3rem .6rem; border-radius:6px; font-size:.9rem; }
+  header nav a:hover { color:#fff; background:rgba(255,255,255,.08); }
+  header nav a.active { color:#fff; background:rgba(255,255,255,.16); }
+  main { max-width:1160px; margin:1.3rem auto; padding:0 1.2rem; }
+  h1 { font-size:1.4rem; margin:.2rem 0 .3rem; }
+  h2 { font-size:1.08rem; margin:1.7rem 0 .6rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:11px; padding:1rem 1.2rem; margin-bottom:1rem; }
   .grid { display:grid; gap:1rem; }
-  .grid.c3 { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+  .grid.c3 { grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); }
+  .grid.c2 { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
   table { width:100%; border-collapse:collapse; font-size:.9rem; }
-  th { text-align:left; color:var(--muted); font-weight:600; padding:.35rem .5rem; border-bottom:1px solid var(--line); }
-  td { padding:.4rem .5rem; border-bottom:1px solid var(--line); vertical-align:top; }
-  .pill { display:inline-block; padding:.05rem .55rem; border-radius:99px; font-size:.78rem; font-weight:600; color:#fff; }
-  .pill.verde{background:var(--verde)} .pill.giallo{background:var(--giallo)}
-  .pill.rosso{background:var(--rosso)} .pill.nd{background:var(--nd)}
+  th { text-align:left; color:var(--muted); font-weight:600; padding:.4rem .5rem; border-bottom:2px solid var(--line); font-size:.82rem; }
+  td { padding:.45rem .5rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:hover td { background:#fafbfc; }
+  .pill { display:inline-block; padding:.08rem .6rem; border-radius:99px; font-size:.78rem; font-weight:600; }
+  .pill.verde{background:var(--verde-bg);color:var(--verde)} .pill.giallo{background:var(--giallo-bg);color:var(--giallo)}
+  .pill.rosso{background:var(--rosso-bg);color:var(--rosso)} .pill.nd{background:var(--nd-bg);color:var(--nd)}
+  .dot { display:inline-block; width:.7rem; height:.7rem; border-radius:50%; vertical-align:middle; }
+  .dot.verde{background:var(--verde)} .dot.giallo{background:var(--giallo)} .dot.rosso{background:var(--rosso)} .dot.nd{background:var(--nd)}
   .muted { color:var(--muted); font-size:.86rem; }
   .kpi { font-size:1.7rem; font-weight:700; }
-  form.inline { display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-end; }
-  label { display:flex; flex-direction:column; font-size:.8rem; color:var(--muted); gap:.15rem; }
-  input,select,textarea { font:inherit; padding:.35rem .5rem; border:1px solid var(--line); border-radius:6px; background:#fff; }
-  button { font:inherit; padding:.4rem .9rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
-  button.small { padding:.2rem .6rem; font-size:.8rem; }
-  .warn { background:#fff8e6; border:1px solid #eadfb2; border-radius:8px; padding:.6rem .9rem; font-size:.86rem; margin-bottom:1rem; }
-  details summary { cursor:pointer; color:var(--accent); font-size:.86rem; }
+  form.inline { display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end; }
+  label { display:flex; flex-direction:column; font-size:.8rem; color:var(--muted); gap:.2rem; }
+  input,select,textarea { font:inherit; padding:.4rem .55rem; border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink); }
+  input:focus,select:focus,textarea:focus { outline:2px solid #bcd2f2; border-color:var(--accent); }
+  button { font:inherit; font-weight:600; padding:.45rem 1rem; border:0; border-radius:7px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:hover { background:var(--accent-dark); }
+  button.small { padding:.22rem .65rem; font-size:.8rem; font-weight:500; }
+  button.ghost { background:#eef1f6; color:var(--accent); }
+  button.ghost:hover { background:#e2e8f1; }
+  a.btn { display:inline-block; text-decoration:none; font-weight:600; padding:.45rem 1rem; border-radius:7px; background:var(--accent); color:#fff; }
+  a.btn:hover { background:var(--accent-dark); }
+  a.btn.ghost { background:#eef1f6; color:var(--accent); }
+  .intro { background:#eef3fb; border:1px solid #d7e3f6; border-radius:9px; padding:.7rem 1rem; font-size:.9rem; margin-bottom:1.1rem; color:#2a3a53; }
+  .intro strong { color:#1b2a44; }
+  .warn { background:var(--giallo-bg); border:1px solid #eadfb2; border-radius:9px; padding:.6rem .9rem; font-size:.86rem; margin-bottom:1rem; }
+  .flash { background:var(--verde-bg); border:1px solid #b6e0c9; color:#155e3b; border-radius:9px; padding:.6rem 1rem; margin-bottom:1rem; font-size:.9rem; font-weight:500; }
+  details summary { cursor:pointer; color:var(--accent); font-size:.85rem; }
   a { color:var(--accent); }
+  /* tooltip inline */
+  .tip { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:50%;
+         background:var(--nd-bg); color:var(--muted); font-size:.72rem; font-weight:700; cursor:help; position:relative; margin-left:.25rem; }
+  .tip:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:150%; transform:translateX(-50%);
+         background:#20303f; color:#fff; padding:.55rem .7rem; border-radius:8px; width:250px; font-size:.78rem; font-weight:400;
+         line-height:1.45; z-index:50; box-shadow:0 6px 20px rgba(0,0,0,.22); }
+  .tip:hover::before { content:""; position:absolute; left:50%; bottom:150%; transform:translate(-50%,80%);
+         border:6px solid transparent; border-top-color:#20303f; z-index:50; }
+  .badge-count { background:var(--rosso); color:#fff; border-radius:99px; padding:0 .45rem; font-size:.72rem; font-weight:700; margin-left:.3rem; }
+  .empty { text-align:center; color:var(--muted); padding:1.3rem; font-size:.9rem; }
 </style>
 </head>
 <body>
 <header>
   <div class="logo">DOIM <span>· decision intelligence</span></div>
+  {% set p = request.url.path %}
   <nav>
-    <a href="/">Dashboard</a>
-    <a href="/opportunities">Opportunità</a>
-    <a href="/predictions">Prediction journal</a>
-    <a href="/decisions">Decisioni &amp; outcome</a>
-    <a href="/hypotheses">Registro ipotesi</a>
-    <a href="/import">Import dati</a>
+    <a href="/" class="{{ 'active' if p == '/' }}">Oggi</a>
+    <a href="/opportunities" class="{{ 'active' if p.startswith('/opportunities') }}">Opportunità</a>
+    <a href="/predictions" class="{{ 'active' if p == '/predictions' }}">Previsioni</a>
+    <a href="/decisions" class="{{ 'active' if p == '/decisions' }}">Decisioni</a>
+    <a href="/hypotheses" class="{{ 'active' if p == '/hypotheses' }}">Ipotesi</a>
+    <a href="/import" class="{{ 'active' if p == '/import' }}">Import</a>
+    <a href="/help" class="{{ 'active' if p == '/help' }}">Come funziona</a>
   </nav>
 </header>
 <main>
+{% if flash %}<div class="flash">✓ {{ flash }}</div>{% endif %}
 {% block content %}{% endblock %}
 </main>
 </body>

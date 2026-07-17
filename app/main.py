@@ -8,14 +8,16 @@ import csv
 import io
 import json
 import pathlib
+import re
 from datetime import date, datetime, timezone
+from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from . import db
-from .score import compute_profile
+from .score import compute_profile, profile_summary
 
 app = FastAPI(title="DOIM")
 templates = Jinja2Templates(
@@ -26,6 +28,26 @@ db.init_db()
 
 def today():
     return date.today().isoformat()
+
+
+def slugify(text):
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return s or "opp"
+
+
+def unique_key(conn, base):
+    key, i = base, 2
+    while conn.execute("SELECT 1 FROM opportunities WHERE key=?", (key,)).fetchone():
+        key = f"{base}-{i}"
+        i += 1
+    return key
+
+
+def redirect(path, flash=None):
+    if flash:
+        sep = "&" if "?" in path else "?"
+        path = f"{path}{sep}flash={quote(flash)}"
+    return RedirectResponse(path, status_code=303)
 
 
 def sparkline(rows, w=180, h=40):
@@ -46,25 +68,55 @@ def sparkline(rows, w=180, h=40):
 
 
 def render(request, template, **ctx):
+    ctx.setdefault("flash", request.query_params.get("flash"))
     return templates.TemplateResponse(request, template, ctx)
 
 
 # ---------------------------------------------------------------- dashboard
+STALE_DAYS = 3
+
+
 @app.get("/")
 def index(request: Request):
     conn = db.get_conn()
-    states = conn.execute(
-        "SELECT state, COUNT(*) n FROM opportunities GROUP BY state"
+
+    # Azione: opportunità attive non osservate da troppo tempo (dati stantii, B7)
+    tracked = conn.execute(
+        "SELECT o.id, o.name, o.network, MAX(ob.observed_at) last_obs "
+        "FROM opportunities o LEFT JOIN observations ob ON ob.opportunity_id=o.id "
+        "WHERE o.state NOT IN ('morta','chiusa') GROUP BY o.id ORDER BY last_obs"
     ).fetchall()
-    due = conn.execute(
+    stale = []
+    for r in tracked:
+        if r["last_obs"] is None:
+            stale.append({"opp": r, "days": None})
+        else:
+            age = (date.today() - date.fromisoformat(str(r["last_obs"])[:10])).days
+            if age >= STALE_DAYS:
+                stale.append({"opp": r, "days": age})
+
+    # Azione: previsioni scadute da risolvere ora
+    to_resolve = conn.execute(
         "SELECT p.*, o.name opp_name FROM predictions p LEFT JOIN opportunities o ON o.id=p.opportunity_id "
-        "WHERE p.resolved=0 AND p.due_date <= date('now','+7 day') ORDER BY p.due_date LIMIT 10"
+        "WHERE p.resolved=0 AND p.due_date <= date('now') ORDER BY p.due_date"
     ).fetchall()
-    recent = conn.execute(
-        "SELECT ob.observed_at, ob.value, s.key sig, o.name opp FROM observations ob "
-        "JOIN signals s ON s.id=ob.signal_id JOIN opportunities o ON o.id=ob.opportunity_id "
-        "ORDER BY ob.recorded_at DESC LIMIT 12"
+    # Heads-up: previsioni in scadenza entro 7 giorni
+    upcoming = conn.execute(
+        "SELECT p.*, o.name opp_name FROM predictions p LEFT JOIN opportunities o ON o.id=p.opportunity_id "
+        "WHERE p.resolved=0 AND p.due_date > date('now') AND p.due_date <= date('now','+7 day') ORDER BY p.due_date"
     ).fetchall()
+    # Azione: decisioni allocate senza outcome registrato
+    awaiting = conn.execute(
+        "SELECT d.id, d.action, d.created_at, o.name opp_name, o.id opp_id FROM decisions d "
+        "JOIN opportunities o ON o.id=d.opportunity_id "
+        "LEFT JOIN outcomes oc ON oc.decision_id=d.id "
+        "WHERE d.action IN ('alloca','controllo') AND oc.id IS NULL ORDER BY d.created_at"
+    ).fetchall()
+    # Nudge: previsioni pre-registrate negli ultimi 7 giorni (cadenza settimanale)
+    preds_week = conn.execute(
+        "SELECT COUNT(*) n FROM predictions WHERE created_at >= date('now','-7 day')"
+    ).fetchone()["n"]
+
     counts = {
         "opps": conn.execute("SELECT COUNT(*) n FROM opportunities").fetchone()["n"],
         "obs": conn.execute("SELECT COUNT(*) n FROM observations").fetchone()["n"],
@@ -75,8 +127,16 @@ def index(request: Request):
         "SELECT predictor, COUNT(*) n, AVG(brier) brier FROM predictions WHERE resolved=1 GROUP BY predictor"
     ).fetchall()
     conn.close()
-    return render(request, "index.html", states=states, due=due, recent=recent,
-                  counts=counts, cal=cal, today=today())
+    n_actions = len(stale) + len(to_resolve) + len(awaiting) + (1 if preds_week == 0 else 0)
+    return render(request, "index.html", stale=stale, to_resolve=to_resolve,
+                  upcoming=upcoming, awaiting=awaiting, preds_week=preds_week,
+                  counts=counts, cal=cal, n_actions=n_actions, stale_days=STALE_DAYS,
+                  today=today())
+
+
+@app.get("/help")
+def help_page(request: Request):
+    return render(request, "help.html")
 
 
 # ------------------------------------------------------------ opportunities
@@ -89,29 +149,33 @@ def opportunities(request: Request):
     enriched = []
     for o in opps:
         profile = compute_profile(conn, o)
-        enriched.append({"opp": o, "profile": profile})
+        enriched.append({"opp": o, "profile": profile, "summary": profile_summary(profile)})
     conn.close()
     return render(request, "opportunities.html", items=enriched)
 
 
 @app.post("/opportunities")
 def add_opportunity(
-    key: str = Form(...), name: str = Form(...), network: str = Form(""),
+    name: str = Form(...), network: str = Form(""), key: str = Form(""),
     vertical: str = Form(""), geo: str = Form(""), url: str = Form(""),
     assets_required: str = Form(""), prelander_required: str = Form("0"),
     compliance_class: str = Form("white"), notes: str = Form(""),
 ):
     conn = db.get_conn()
-    conn.execute(
+    base = slugify(key) if key.strip() else slugify(name)
+    final_key = unique_key(conn, base)
+    cur = conn.execute(
         "INSERT INTO opportunities(key,name,network,vertical,geo,url,assets_required,prelander_required,compliance_class,notes) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (key.strip(), name.strip(), network, vertical, geo, url,
+        (final_key, name.strip(), network, vertical, geo, url,
          int(assets_required) if assets_required else None,
          int(prelander_required or 0), compliance_class, notes),
     )
+    oid = cur.lastrowid
     conn.commit()
     conn.close()
-    return RedirectResponse("/opportunities", status_code=303)
+    return redirect(f"/opportunities/{oid}",
+                    flash=f"Opportunità «{name.strip()}» creata. Registra la prima osservazione qui sotto.")
 
 
 @app.get("/opportunities/{oid}")
@@ -120,8 +184,9 @@ def opportunity_detail(request: Request, oid: int):
     opp = conn.execute("SELECT * FROM opportunities WHERE id=?", (oid,)).fetchone()
     if not opp:
         conn.close()
-        return RedirectResponse("/opportunities", status_code=303)
+        return redirect("/opportunities")
     profile = compute_profile(conn, opp)
+    summary = profile_summary(profile)
     signals = conn.execute("SELECT * FROM signals ORDER BY key").fetchall()
     charts = []
     for s in signals:
@@ -146,7 +211,7 @@ def opportunity_detail(request: Request, oid: int):
     ).fetchall()
     sources = conn.execute("SELECT * FROM sources ORDER BY name").fetchall()
     conn.close()
-    return render(request, "opportunity.html", opp=opp, profile=profile,
+    return render(request, "opportunity.html", opp=opp, profile=profile, summary=summary,
                   charts=charts, observations=observations, predictions=predictions,
                   decisions=decisions, signals=signals, sources=sources, today=today())
 
@@ -158,7 +223,7 @@ def set_state(oid: int, state: str = Form(...), approval_status: str = Form(...)
                  (state, approval_status, oid))
     conn.commit()
     conn.close()
-    return RedirectResponse(f"/opportunities/{oid}", status_code=303)
+    return redirect(f"/opportunities/{oid}", flash="Stato aggiornato.")
 
 
 # ------------------------------------------------------------- observations
@@ -176,12 +241,59 @@ def add_observation(oid: int, signal_id: int = Form(...), value: str = Form(""),
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(f"/opportunities/{oid}", status_code=303)
+    return redirect(f"/opportunities/{oid}", flash="Osservazione registrata.")
+
+
+@app.get("/opportunities/{oid}/update")
+def update_form(request: Request, oid: int):
+    """Schermata di aggiornamento in blocco: tutti i segnali di un'opportunità in una volta."""
+    conn = db.get_conn()
+    opp = conn.execute("SELECT * FROM opportunities WHERE id=?", (oid,)).fetchone()
+    if not opp:
+        conn.close()
+        return redirect("/opportunities")
+    signals = conn.execute("SELECT * FROM signals ORDER BY tier, key").fetchall()
+    rows = []
+    for s in signals:
+        last = db.latest_observation(conn, oid, s["key"])
+        rows.append({"signal": s, "last": last})
+    sources = conn.execute("SELECT * FROM sources ORDER BY name").fetchall()
+    conn.close()
+    return render(request, "update.html", opp=opp, rows=rows, sources=sources, today=today())
+
+
+@app.post("/opportunities/{oid}/update")
+async def update_submit(request: Request, oid: int):
+    """Registra un'osservazione per ogni segnale in cui è stato inserito un valore."""
+    form = await request.form()
+    observed_at = (form.get("observed_at") or today()).strip()
+    source_id = form.get("source_id") or ""
+    conn = db.get_conn()
+    n = 0
+    for k, v in form.items():
+        if not k.startswith("sig_") or v is None or str(v).strip() == "":
+            continue
+        try:
+            sid = int(k[4:])
+            val = float(v)
+        except ValueError:
+            continue
+        conn.execute(
+            "INSERT INTO observations(opportunity_id,signal_id,value,observed_at,source_id) "
+            "VALUES (?,?,?,?,?)",
+            (oid, sid, val, observed_at, int(source_id) if source_id else None))
+        n += 1
+    if n and conn.execute("SELECT state FROM opportunities WHERE id=?", (oid,)).fetchone()["state"] == "rilevata":
+        conn.execute("UPDATE opportunities SET state='osservata' WHERE id=?", (oid,))
+    conn.commit()
+    conn.close()
+    msg = f"{n} osservazioni registrate." if n else "Nessun valore inserito."
+    return redirect(f"/opportunities/{oid}", flash=msg)
 
 
 @app.get("/import")
-def import_page(request: Request, imported: int = 0, skipped: int = 0):
-    return render(request, "import.html", imported=imported, skipped=skipped)
+def import_page(request: Request):
+    return render(request, "import.html")
 
 
 @app.post("/import/csv")
@@ -228,7 +340,8 @@ async def import_csv(file: UploadFile):
         imported += 1
     conn.commit()
     conn.close()
-    return RedirectResponse(f"/import?imported={imported}&skipped={skipped}", status_code=303)
+    return redirect("/import",
+                    flash=f"Import completato: {imported} osservazioni, {skipped} righe saltate.")
 
 
 @app.post("/api/observations")
@@ -289,21 +402,23 @@ def add_prediction(statement: str = Form(...), probability: float = Form(...),
          statement, probability, predictor, due_date))
     conn.commit()
     conn.close()
-    return RedirectResponse("/predictions", status_code=303)
+    return redirect("/predictions", flash="Previsione pre-registrata.")
 
 
 @app.post("/predictions/{pid}/resolve")
 def resolve_prediction(pid: int, outcome: int = Form(...)):
     conn = db.get_conn()
     row = conn.execute("SELECT probability FROM predictions WHERE id=? AND resolved=0", (pid,)).fetchone()
+    flash = "Previsione già risolta."
     if row:
         brier = (row["probability"] - outcome) ** 2
         conn.execute(
             "UPDATE predictions SET resolved=1, outcome=?, brier=?, resolved_at=datetime('now') WHERE id=?",
             (outcome, brier, pid))
         conn.commit()
+        flash = f"Previsione risolta — Brier {brier:.3f}."
     conn.close()
-    return RedirectResponse("/predictions", status_code=303)
+    return redirect("/predictions", flash=flash)
 
 
 # --------------------------------------------------------------- hypotheses
@@ -322,7 +437,7 @@ def update_hypothesis(code: str, status: str = Form(...), verdict: str = Form(""
                  (status, verdict, code))
     conn.commit()
     conn.close()
-    return RedirectResponse("/hypotheses", status_code=303)
+    return redirect("/hypotheses", flash=f"Ipotesi {code} aggiornata.")
 
 
 # ---------------------------------------------------------------- decisions
@@ -368,7 +483,8 @@ def add_decision(oid: int, action: str = Form(...), rationale: str = Form(""),
         conn.execute("UPDATE opportunities SET state='allocata' WHERE id=?", (oid,))
     conn.commit()
     conn.close()
-    return RedirectResponse(f"/opportunities/{oid}", status_code=303)
+    return redirect(f"/opportunities/{oid}",
+                    flash=f"Decisione «{action}» registrata con snapshot dei segnali congelato.")
 
 
 @app.post("/decisions/{did}/outcome")
@@ -387,4 +503,4 @@ def add_outcome(did: int, spend: float = Form(...), revenue_network: str = Form(
          incidents or None, int(censored or 0)))
     conn.commit()
     conn.close()
-    return RedirectResponse("/decisions", status_code=303)
+    return redirect("/decisions", flash="Outcome registrato.")

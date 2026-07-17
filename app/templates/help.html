@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Come funziona</h1>
+<div class="intro">
+  DOIM non predice: <strong>raccoglie prove</strong>. Serve a rispondere, con dati e non a intuito,
+  alla domanda «su quale opportunità conviene investire tempo e capitale oggi?».
+  In questa fase costruisci tre cose: uno <strong>storico</strong>, un <strong>track record di previsioni</strong>, e delle <strong>etichette</strong> (i risultati reali).
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">La routine (è tutto qui)</h2>
+  <ol>
+    <li><strong>Ogni 1-2 giorni · 10 min</strong> — Apri <a href="/">Oggi</a> e aggiorna le opportunità segnalate come stantie. Un clic su «Aggiorna» ti fa inserire tutti i segnali in un colpo solo.</li>
+    <li><strong>Ogni settimana · 15 min</strong> — Pre-registra 3-5 <a href="/predictions">previsioni</a> falsificabili, anche a puro intuito. È questo, non la piattaforma, che dimostra se c'è un segnale.</li>
+    <li><strong>Alle scadenze</strong> — Risolvi le previsioni (avverata / no) dalla pagina <a href="/">Oggi</a>. Il punteggio si calcola da solo.</li>
+    <li><strong>A ogni lancio</strong> — Registra la <a href="/decisions">decisione</a> <em>prima</em> di lanciare, poi l'outcome con entrambe le revenue (network e tuo tracking).</li>
+    <li><strong>Ogni mese</strong> — Aggiorna il <a href="/hypotheses">Registro ipotesi</a> con quello che hai imparato.</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Glossario</h2>
+  <table>
+    <tr><th>Termine</th><th>Cosa significa</th></tr>
+    <tr><td><strong>Opportunità</strong></td><td>Un'occasione di guadagno (un'offerta, un prodotto, una nicchia) seguita nel tempo come un titolo, con tutto il suo storico.</td></tr>
+    <tr><td><strong>Osservazione</strong></td><td>Un valore misurato in una certa data. È <em>append-only</em>: non si corregge, se sbagli ne registri una nuova. Così lo storico resta onesto.</td></tr>
+    <tr><td><strong>Tier A / B / C</strong></td><td><strong>A</strong> = osservato direttamente (fatto). <strong>B</strong> = stima con errore. <strong>C</strong> = non conoscibile (es. il profitto reale dei concorrenti). Non confondere mai una stima per un fatto.</td></tr>
+    <tr><td><strong>Profilo</strong></td><td>I 6 semafori di un'opportunità (Domanda, Concorrenza, Economics, Durabilità, Fit, Data confidence). È una <em>checklist</em> per farti le domande giuste, NON un voto — le soglie non sono ancora validate.</td></tr>
+    <tr><td><strong>Previsione</strong></td><td>Un'affermazione falsificabile con una probabilità e una scadenza, registrata <em>in anticipo</em>. Impedisce di raccontarsi storie a posteriori.</td></tr>
+    <tr><td><strong>Brier score</strong></td><td>Misura quanto sei calibrato: 0 = perfetto, 0.25 = tirare a indovinare. Confrontarlo tra sistema e intuito umano dice se lo strumento aggiunge valore.</td></tr>
+    <tr><td><strong>Decisione + snapshot</strong></td><td>Quando decidi di allocare, il sistema fotografa i segnali visibili in quel momento. Così, guardando indietro, sai davvero cosa sapevi allora.</td></tr>
+    <tr><td><strong>Braccio di controllo</strong></td><td>Ogni tanto alloca su un'offerta scelta <em>a caso</em>. Serve a capire se i tuoi risultati vengono dal segnale o solo dalla tua bravura.</td></tr>
+    <tr><td><strong>Outcome + discrepanza</strong></td><td>Il risultato economico reale. Registri sia quello che dichiara il network sia quello del tuo tracking: la differenza misura quanto ti puoi fidare del network (B4).</td></tr>
+    <tr><td><strong>Etichetta censurata</strong></td><td>Un risultato invalidato da un incidente (ban, cap): non conta come «fallimento», altrimenti impareresti cose false.</td></tr>
+    <tr><td><strong>Ipotesi (A1-A13)</strong></td><td>Le convinzioni su cui poggia tutto il progetto, scritte come affermazioni da dimostrare o smontare. La regola d'oro: niente si costruisce se non serve a testarne una.</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Perché niente «punteggio magico»</h2>
+  <p class="muted">Sommare segnali non validati in un unico numero 87/100 dà una precisione finta — è ciò che fanno i tool
+  consumer, ed è esattamente ciò che qui è vietato. Prima si dimostra <em>quali</em> segnali predicono davvero
+  qualcosa (le ipotesi), poi — solo poi — si potrà pesarli. Fino ad allora lo strumento ti mostra le sue prove
+  e ti lascia decidere.</p>
+</div>
+{% endblock %}
