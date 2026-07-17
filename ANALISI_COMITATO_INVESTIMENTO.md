@@ -291,6 +291,39 @@ Nessuna delle seguenti è "predittiva" fino a prova contraria: sono *candidate*,
 
 ---
 
+## 11-bis. Piano accelerato — stessa disciplina, metà calendario
+
+Revisione critica del §11: il piano originale è sequenziale per prudenza, non per necessità. Tre leve lo comprimono da 12 a ~6 mesi per il verdetto kill/continue, senza toccare la disciplina statistica.
+
+### Le tre leve di compressione
+
+1. **La storia si ricostruisce, non si aspetta.** Le ad libraries espongono la data di inizio degli annunci attivi; i network espongono le date di lancio delle offerte; gli archivi social permettono di ricostruire traiettorie passate. Lo studio retrospettivo su A1 si fa nelle **settimane 2–8**, non ai mesi 4–6. *Avvertenza:* la storia ricostruita ha survivorship bias strutturale (si vedono gli annunci sopravvissuti, non quelli rimossi) — il retrospettivo declassa o promuove ipotesi, non le certifica. La certificazione resta prospettica.
+2. **Il prediction journal parte la settimana 1.** Non serve alcuna pipeline per pre-registrare previsioni: bastano le fonti guardate a mano e un file con timestamp. Ogni settimana di ritardo è una settimana in meno di track record prospettico — ed è il track record, non la pipeline, a soddisfare M1.
+3. **Fasi sovrapposte, gate di confidenza invece di semafori sequenziali.** Se il retrospettivo al mese 2 mostra segnale, le prime micro-allocazioni partono al mese 3–4 (non al 7). L'audit fonti si fa solo sulle 2–3 fonti del pilota; il resto quando serve. Perimetro ridotto: 1–2 verticali, 150–200 opportunità.
+
+### Calendario compresso
+
+| Periodo | Attività | Ipotesi attaccate |
+|---|---|---|
+| Settimane 1–2 | Registro delle Ipotesi; audit delle sole 2–3 fonti del pilota; journal attivo; ontologia dell'effort (B2) e protocollo di integrità delle etichette (B4) | A4, B2, B4 |
+| Settimane 2–8 | Studio retrospettivo su storia ricostruita, in parallelo al tracking prospettico di 150–200 opportunità; misura della latenza di approvazione (B1) | A1 (forma debole), A2, B1 |
+| Mesi 3–4 | Prime micro-allocazioni con braccio di controllo (condizionate al segnale retrospettivo); sonde micro-spend per calibrare i proxy di concorrenza (B3) | A6, A7, A10, B3 |
+| Mese 6 | **Verdetto interim su A1:** retrospettivo + primo ciclo prospettico completo → continue/kill a metà del costo | A1 (forma forte) |
+| Mesi 7–12 | Solo se il mese 6 è positivo: scala delle allocazioni, test di stabilità (A5, A9), calibrazione completa, M1–M3 | A3, A5, A9 |
+
+### Il pavimento fisico (ciò che nessun budget comprime)
+
+- **Il calendario delle previsioni:** una previsione a 60–90 giorni matura in 60–90 giorni. Due cicli prospettici completi — il minimo per M1 — richiedono ~5–6 mesi dall'avvio del journal. L'unica leva è partire la settimana 1.
+- **La maturazione delle etichette economiche:** anche partendo al mese 3, M3 arriva verso il mese 8–9.
+
+### Ciò che non si snellisce mai (qui "velocizzare" = ingannarsi più in fretta)
+
+- Il braccio di controllo casuale nelle allocazioni: senza controllo non si distingue il segnale dall'esecuzione.
+- Pre-registrazione e correzione per test multipli: sono lente per costruzione, perché il loro lavoro è impedire di trovare pattern nel rumore (§2.2.5).
+- Il holdout intoccato nel retrospettivo.
+
+---
+
 ## 12. Verdetto del comitato — brutale, come richiesto
 
 ### Investiresti $20M oggi?
@@ -331,3 +364,73 @@ Il rischio numero uno non è tecnico, statistico o legale. È **costruire la pia
 > **Nessuna riga di infrastruttura che non serva a falsificare un'ipotesi numerata.**
 
 Se tra 12 mesi il Registro delle Ipotesi dice che A1 regge, questo comitato vuole rivedere il dossier. Se dice che non regge, il progetto avrà comunque prodotto l'unica cosa che nessun concorrente possiede: la prova di cosa non funziona — comprata al prezzo minimo possibile.
+
+---
+
+## Appendice B — Colli di bottiglia specifici del caso d'uso originario
+
+**Contesto:** il progetto nasce come sistema che analizza le offerte sui network di affiliazione per decidere, in base a **effort** e **concorrenza**, quale campagna lanciare. Questo perimetro ristretto è più concreto di quello generale — e proprio per questo espone colli di bottiglia che l'analisi generale (§2) non cattura. Sono ordinati per gravità. Per ognuno: perché blocca, e almeno due mitigazioni.
+
+### B1. Il gatekeeping delle approvazioni: puoi vedere l'offerta ma non correrla
+
+Le offerte migliori sui network sono quasi sempre *gated*: richiedono approvazione per offerta o per advertiser, track record, rapporti con l'account manager. La latenza segnale→azione non è "decido e lancio": è decido → chiedo approvazione → aspetto giorni o settimane → forse ricevo un no. **In un mercato dove l'alpha decade in settimane (§2.2.8), la latenza di approvazione può mangiarsi l'intera finestra.** [FATTO per struttura del settore]. Peggio: l'accessibilità è correlata negativamente con l'opportunità — le offerte che approvano chiunque sono quelle già sature.
+
+*Mitigazioni:* (a) portafoglio di pre-approvazioni — coltivare lo status su 2–3 network core *prima* che il segnale arrivi, trattando l'accesso come inventario da mantenere caldo; (b) la probabilità e la latenza di approvazione diventano una componente misurata del Fit (§10.5): un'opportunità eccellente ma inaccessibile in tempo utile deve avere score operativo basso, per quanto belli siano i suoi segnali.
+
+### B2. "Effort" non è un dato: è un'ontologia mancante
+
+Il pitch originale dice "in base a effort e concorrenza" come se l'effort fosse osservabile. Non lo è: non esiste da nessuna parte un campo "effort" da scrapare. L'effort di lancio dipende da produzione creativa, complessità del funnel (direct link vs prelander vs VSL), requisiti di compliance degli angle, geo e lingua, e dalle capacità di chi lancia. **Senza una definizione operativa, "effort" nel modello diventa una sensazione travestita da variabile.** [FATTO]
+
+*Mitigazioni:* (a) decomporre l'effort in proxy contabili: numero di asset creativi necessari, presenza/assenza di prelander richiesto, vincoli di angle imposti dall'advertiser, localizzazione richiesta — tutti osservabili guardando cosa fanno gli incumbent nell'ad library; (b) misurare il *proprio* time-to-launch storico per tipologia di campagna e usarlo come priore empirico: l'effort è una proprietà della coppia (opportunità, operatore), non dell'opportunità.
+
+### B3. La concorrenza vera vive nell'asta, e l'asta è invisibile senza pagare
+
+Il numero di affiliati su un'offerta (osservabile sul network o nell'ad library) **non è** la pressione competitiva reale: quella si forma nell'asta pubblicitaria — CPM/CPC per angle × geo × audience su Meta/TikTok/Google — ed è strutturalmente non osservabile dall'esterno [NON CONOSCIBILE, categoria C del §8]. Due offerte con dieci advertiser ciascuna possono avere costi d'asta diversi di 5×. Il sistema rischia di ottimizzare un proxy della concorrenza scorrelato dal suo prezzo reale.
+
+*Mitigazioni:* (a) **sonde micro-spend**: campagne minuscole a solo scopo di misura, che rilevano CPM/CPC reali per le combinazioni candidate — il costo va contabilizzato come acquisizione dati, non come marketing; (b) validare i proxy: densità di creativi per angle × geo nell'ad library confrontata con i CPM delle sonde — se il proxy correla, si usa il proxy a costo zero; se no, meglio saperlo al mese 2 che al mese 12. *(Ipotesi aggiuntiva da registrare: A13 — "la densità osservabile di creativi è un proxy utilizzabile della pressione d'asta".)*
+
+### B4. Le etichette — l'asset centrale — sono misurate da una controparte avversaria
+
+Questo è il collo di bottiglia più insidioso, perché attacca il cuore della tesi (§4). L'outcome di una campagna affiliate lo certifica il network: e i network hanno incentivi e storia documentata di *shaving/scrubbing* (conversioni non accreditate), reporting ritardato e discrepanze inspiegate. A valle di iOS 14+, anche il proprio tracking soffre di conversioni ritardate e attribuzione degradata. **Conseguenza: la "verità assoluta" dichiarata al §8.A (i propri dati operativi) è in realtà parzialmente contaminata — il dataset decisione→outcome, il vantaggio competitivo dichiarato, ha rumore avversariale dentro.** [FATTO per pratica nota del settore]
+
+*Mitigazioni:* (a) tracking indipendente lato proprio (click e postback server-side) con **monitoraggio sistematico della discrepanza** rispetto al reporting del network: la discrepanza stessa diventa un segnale di prima classe — un *trust score per network/offerta* che entra nel Data Confidence (§10.6); (b) nella fase di ricerca, allocare solo su network/offerte con postback server-side e riconciliazione pulita: un'etichetta sporca in un dataset da 30 allocazioni è veleno, e una discrepanza inspiegata sopra soglia squalifica l'offerta dal campione sperimentale.
+
+### B5. L'inversione confidenza-opportunità (il problema del cold start)
+
+Tensione strutturale del prodotto: **il sistema è tanto più confidente quanto più lunga è la storia dell'opportunità — ma il valore dell'opportunità decade proprio mentre la storia si accumula.** Le offerte nuove, dove sta l'alpha, non hanno serie storica per definizione; le offerte con serie storica ricca sono quelle mature, dove l'alpha è già stato mangiato. Un ranking ingenuo premierà sistematicamente le opportunità sbagliate al momento sbagliato.
+
+*Mitigazioni:* (a) scoring per comparabili: un'offerta nuova eredita i priori dalla coorte delle offerte storiche più simili (stesso verticale, stessa meccanica, stesso network) — è il primo caso d'uso concreto che giustificherebbe il graph del §7; (b) due regimi espliciti e separati nel decision engine: *early bets* (checklist + priori di verticale + Data Confidence dichiaratamente basso) e *mature ranking* (data-driven) — mai un unico score che li mescola fingendo confidenza uniforme.
+
+### B6. Il rumore del test di lancio: anche l'etichetta comprata è sfocata
+
+Un lancio non produce un verdetto: i primi 300–500 € di spend su una campagna producono una manciata di conversioni, statisticamente quasi mute. Dichiarare "questa opportunità non funziona" dopo un test breve genera falsi negativi in serie; insistere genera perdite. **Anche pagando, l'etichetta arriva sfocata — e il piano di ricerca contava le allocazioni come se ognuna valesse un'etichetta pulita.** [FATTO statistico]
+
+*Mitigazioni:* (a) protocollo di test sequenziale con regole di stop pre-registrate (soglie di spend e di evidenza decise *prima* del lancio, non davanti alla dashboard); (b) etichette come distribuzioni, non binarie: "vinta/persa" butta informazione — registrare l'intervallo dell'EPC osservato e, dove possibile, allocazioni ripetute sulla stessa offerta con esecuzioni diverse (attacca anche A6).
+
+### B7. I termini dell'offerta scadono più in fretta dei dati
+
+Cap giornalieri raggiunti, offerte messe in pausa, payout rinegoziati, geo aggiunti o tolti: i termini osservati ieri possono essere falsi oggi. Una decisione presa su termini scaduti è una decisione sbagliata con dati "corretti". 
+
+*Mitigazioni:* (a) ri-verifica umana dei termini al momento della decisione (il costo è minuto, il rischio evitato è il lancio su un'offerta in pausa); (b) la *staleness* di ogni campo entra nel Data Confidence (§10.6) — un payout osservato 20 giorni fa non pesa come uno osservato stamattina.
+
+### B8. L'infrastruttura d'esecuzione contamina le etichette: il ban non è un segnale sull'offerta
+
+Lanciare richiede ad account, pixel, domini, pagine — e nel settore affiliate i ban di piattaforma sono routine, spesso senza correlazione con la qualità dell'opportunità. Un account sospeso a metà test produce un'etichetta "fallita" che non dice nulla sull'offerta. **Se gli incidenti di esecuzione non sono tracciati, il feedback loop impara associazioni false.**
+
+*Mitigazioni:* (a) ogni allocazione registra gli incidenti operativi (ban, rejection creativi, limiti di spesa) come covariate, e le etichette colpite vengono *censurate*, non contate come fallimenti; (b) in fase di ricerca, restringersi a verticali white-hat pienamente compliant: etichette più pulite a costo di payout medi più bassi — in ricerca la pulizia del dato vale più del margine.
+
+### B9. Compliance per verticale: l'effort nascosto è il rischio regolatorio
+
+I payout alti si concentrano in verticali con angle grigi (salute, finanza, sweepstake). Il "vero effort" di quelle offerte include il rischio di policy: creativi rifiutati, account bruciati, in casi estremi esposizione legale. Un modello effort/concorrenza che ignora la dimensione compliance selezionerà sistematicamente le offerte apparentemente migliori e operativamente peggiori.
+
+*Mitigazioni:* (a) classificazione di compliance come **filtro di stadio 1** del decision engine (§7) — prima del ranking, non dopo; (b) esclusione dei verticali grigi dall'intera fase di ricerca (coerente con B8).
+
+### B10. Cadenza decisionale bassa: l'osservazione è giornaliera, la decisione è mensile
+
+Un operatore lancia poche campagne al mese. Il rapporto tra costo dell'osservazione continua e numero di decisioni servite è strutturalmente sfavorevole se il sistema serve *solo* la decisione di lancio. 
+
+*Mitigazioni:* (a) l'osservazione giornaliera deve alimentare anche l'anello di calibrazione a etichette gratuite (§7.1) — previsioni su sopravvivenza e saturazione — così ogni giorno di raccolta produce valore anche nei giorni senza lanci; (b) se dopo il mese 6 il valore per decisione resta basso, questo è un argomento per il modello consorzio (più decisori serviti dalla stessa osservazione) piuttosto che per l'uso singolo.
+
+### Sintesi dell'appendice
+
+Il perimetro ristretto (offerte affiliate → quale campagna lanciare) rende l'idea più testabile ma aggiunge quattro verità scomode: **l'accesso si guadagna prima del segnale (B1), l'effort va inventato come variabile (B2), la concorrenza vera si misura solo pagando (B3), e perfino la verità sul proprio risultato è certificata da una controparte con incentivi contrari (B4).** Nessuna delle quattro è fatale; tutte e quattro, ignorate insieme, lo sono. Il piano accelerato (§11-bis) le incorpora: ontologia dell'effort e protocollo di integrità delle etichette alle settimane 1–2, misura della latenza di approvazione nel pilota, sonde micro-spend ai mesi 3–4.
