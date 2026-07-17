@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard di ricerca</h1>
+<div class="warn">Fase 1 — strumento di ricerca, non di previsione: le regole del profilo NON sono validate.
+Ogni affermazione del sistema è un'ipotesi finché il Registro ipotesi non dice il contrario.</div>
+
+<div class="grid c3">
+  <div class="card"><div class="muted">Opportunità tracciate</div><div class="kpi">{{ counts.opps }}</div></div>
+  <div class="card"><div class="muted">Osservazioni (append-only)</div><div class="kpi">{{ counts.obs }}</div></div>
+  <div class="card"><div class="muted">Previsioni aperte</div><div class="kpi">{{ counts.preds_open }}</div></div>
+  <div class="card"><div class="muted">Ipotesi aperte / in test</div><div class="kpi">{{ counts.hyp_open }}</div></div>
+</div>
+
+<div class="grid" style="grid-template-columns:1fr 1fr;">
+  <div class="card">
+    <h2 style="margin-top:0">Previsioni in scadenza (7 giorni)</h2>
+    {% if due %}
+    <table>
+      <tr><th>Scadenza</th><th>Previsione</th><th>p</th><th>Chi</th></tr>
+      {% for p in due %}
+      <tr><td>{{ p.due_date }}</td>
+          <td>{{ p.statement }}{% if p.opp_name %} <span class="muted">({{ p.opp_name }})</span>{% endif %}</td>
+          <td>{{ '%.0f' % (p.probability*100) }}%</td><td>{{ p.predictor }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">Nessuna previsione in scadenza. Il journal va alimentato ogni settimana (§11-bis).</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Calibrazione (previsioni risolte)</h2>
+    {% if cal %}
+    <table>
+      <tr><th>Predittore</th><th>N</th><th>Brier medio</th></tr>
+      {% for c in cal %}
+      <tr><td>{{ c.predictor }}</td><td>{{ c.n }}</td><td>{{ '%.3f' % c.brier if c.brier is not none else '—' }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="muted">Riferimento: 0.25 = lancio di moneta. Sotto 0.25 con N alto = segnale (M1).</p>
+    {% else %}<p class="muted">Ancora nessuna previsione risolta.</p>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Stato del portafoglio</h2>
+  {% for s in states %}<span class="pill nd" style="margin-right:.4rem">{{ s.state }}: {{ s.n }}</span>{% endfor %}
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Ultime osservazioni</h2>
+  <table>
+    <tr><th>Quando</th><th>Opportunità</th><th>Segnale</th><th>Valore</th></tr>
+    {% for r in recent %}
+    <tr><td>{{ r.observed_at[:10] }}</td><td>{{ r.opp }}</td><td>{{ r.sig }}</td><td>{{ r.value }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

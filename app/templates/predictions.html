@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Prediction journal</h1>
+<div class="warn">Ogni previsione è pre-registrata con timestamp e non modificabile: è il meccanismo che
+genera etichette gratuite e track record (M1). Cadenza minima: ogni settimana, anche a intuito.</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Pre-registra una previsione</h2>
+  <form class="inline" method="post" action="/predictions">
+    <label style="min-width:340px">Enunciato falsificabile<input name="statement" required placeholder="L'offerta X avrà ancora >10 advertiser attivi il ..."></label>
+    <label>Probabilità (0–1)<input name="probability" type="number" step="0.01" min="0.01" max="0.99" required></label>
+    <label>Scadenza<input name="due_date" type="date" required></label>
+    <label>Predittore<select name="predictor"><option>umano</option><option>sistema</option></select></label>
+    <label>Opportunità<select name="opportunity_id"><option value="">—</option>{% for o in opps %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select></label>
+    <label>Ipotesi<input name="hypothesis_code" placeholder="A1"></label>
+    <button>Registra</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Calibrazione per predittore</h2>
+  {% if cal %}
+  <table>
+    <tr><th>Predittore</th><th>N risolte</th><th>Brier medio</th><th>Base rate esiti</th></tr>
+    {% for c in cal %}
+    <tr><td>{{ c.predictor }}</td><td>{{ c.n }}</td>
+        <td>{{ '%.3f' % c.brier if c.brier is not none else '—' }}</td>
+        <td>{{ '%.0f' % (c.base_rate*100) }}%</td></tr>
+    {% endfor %}
+  </table>
+  <p class="muted">Brier 0.25 = moneta. Il confronto che conta è sistema vs umano vs base rate (ipotesi A10).</p>
+  {% else %}<p class="muted">Nessuna previsione risolta ancora.</p>{% endif %}
+</div>
+
+<div class="card">
+  <table>
+    <tr><th>Creata</th><th>Previsione</th><th>p</th><th>Chi</th><th>Scadenza</th><th>Esito</th><th>Brier</th><th></th></tr>
+    {% for p in rows %}
+    <tr {% if not p.resolved and p.due_date <= today %}style="background:#fff3f0"{% endif %}>
+      <td>{{ p.created_at[:10] }}</td>
+      <td>{{ p.statement }}{% if p.opp_name %} <span class="muted">({{ p.opp_name }})</span>{% endif %}
+          {% if p.hypothesis_code %}<span class="pill nd">{{ p.hypothesis_code }}</span>{% endif %}</td>
+      <td>{{ '%.0f' % (p.probability*100) }}%</td>
+      <td>{{ p.predictor }}</td>
+      <td>{{ p.due_date }}</td>
+      <td>{% if p.resolved %}{{ 'VERO' if p.outcome else 'FALSO' }}{% else %}aperta{% endif %}</td>
+      <td>{{ '%.3f' % p.brier if p.brier is not none else '—' }}</td>
+      <td>{% if not p.resolved %}
+        <form class="inline" method="post" action="/predictions/{{ p.id }}/resolve">
+          <button class="small" name="outcome" value="1">vero</button>
+          <button class="small" name="outcome" value="0" style="background:var(--rosso)">falso</button>
+        </form>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

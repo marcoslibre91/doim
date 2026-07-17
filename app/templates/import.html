@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Import dati</h1>
+{% if imported or skipped %}<div class="warn">Import completato: {{ imported }} osservazioni registrate, {{ skipped }} righe saltate (segnale sconosciuto).</div>{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0">CSV di osservazioni</h2>
+  <p class="muted">Colonne richieste: <code>opportunity_key, signal_key, value, observed_at, source</code>.
+  Le opportunità e le fonti mancanti vengono create; i segnali NO — la semantica dei segnali si definisce a mano, versionata (§7).</p>
+  <form method="post" action="/import/csv" enctype="multipart/form-data" class="inline">
+    <input type="file" name="file" accept=".csv" required>
+    <button>Importa</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Report dei network (GiddyUp &amp; co.)</h2>
+  <p class="muted">GiddyUp e molti network "pro" girano su piattaforma Everflow: dal pannello affiliato puoi
+  generare una API key personale e usare <code>app/connectors.py</code> per scaricare offerte e statistiche del
+  TUO account (uso legittimo: solo i propri dati, via API ufficiale). In alternativa esporta i report CSV dal
+  pannello e riconducili al formato qui sopra.</p>
+  <p class="muted">API bulk per connettori: <code>POST /api/observations</code> con lista JSON
+  <code>[{"opportunity_key":..., "signal_key":..., "value":..., "observed_at":..., "source":...}]</code>.</p>
+</div>
+{% endblock %}

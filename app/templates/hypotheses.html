@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Registro delle ipotesi</h1>
+<div class="warn">La regola d'oro del progetto: nessuna riga di infrastruttura che non serva a falsificare
+un'ipotesi numerata. Ogni ipotesi è falsa finché non dimostrata.</div>
+
+{% for h in rows %}
+<div class="card">
+  <strong>{{ h.code }}</strong>
+  <span class="pill {{ 'verde' if h.status=='confermata' else ('rosso' if h.status=='falsificata' else ('giallo' if h.status=='in_test' else 'nd')) }}">{{ h.status }}</span>
+  <p style="margin:.4rem 0">{{ h.statement }}</p>
+  {% if h.test_design %}<p class="muted"><strong>Test:</strong> {{ h.test_design }}</p>{% endif %}
+  {% if h.kill_criterion %}<p class="muted"><strong>Kill criterion:</strong> {{ h.kill_criterion }}</p>{% endif %}
+  {% if h.verdict %}<p class="muted"><strong>Verdetto:</strong> {{ h.verdict }}</p>{% endif %}
+  <details><summary>aggiorna stato</summary>
+    <form class="inline" method="post" action="/hypotheses/{{ h.code }}/update" style="margin-top:.5rem">
+      <label>Stato<select name="status">{% for s in ['aperta','in_test','confermata','falsificata','indecidibile'] %}
+        <option {% if h.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+      <label style="min-width:320px">Verdetto / evidenza<input name="verdict" value="{{ h.verdict or '' }}"></label>
+      <button class="small">Salva</button>
+    </form>
+  </details>
+</div>
+{% endfor %}
+{% endblock %}

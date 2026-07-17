@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Opportunità</h1>
+
+<div class="card">
+  <h2 style="margin-top:0">Aggiungi opportunità</h2>
+  <form class="inline" method="post" action="/opportunities">
+    <label>Key univoca<input name="key" required placeholder="giddyup-sleepband-us"></label>
+    <label>Nome<input name="name" required placeholder="SleepBand — GiddyUp"></label>
+    <label>Network<input name="network" placeholder="GiddyUp"></label>
+    <label>Verticale<input name="vertical" placeholder="home/sleep"></label>
+    <label>Geo<input name="geo" placeholder="US"></label>
+    <label>URL<input name="url"></label>
+    <label>Asset richiesti (B2)<input name="assets_required" type="number" min="0"></label>
+    <label>Prelander<select name="prelander_required"><option value="0">no</option><option value="1">sì</option></select></label>
+    <label>Compliance<select name="compliance_class"><option>white</option><option>grey</option><option>black</option></select></label>
+    <button>Aggiungi</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <tr><th>Opportunità</th><th>Network</th><th>Stato</th><th>Approvazione</th><th>Profilo (non validato)</th></tr>
+    {% for it in items %}
+    <tr>
+      <td><a href="/opportunities/{{ it.opp.id }}">{{ it.opp.name }}</a><br><span class="muted">{{ it.opp.vertical }} · {{ it.opp.geo }}</span></td>
+      <td>{{ it.opp.network }}</td>
+      <td>{{ it.opp.state }}</td>
+      <td>{{ it.opp.approval_status }}</td>
+      <td>
+        {% for c in it.profile %}
+          <span class="pill {{ 'nd' if c.status == 'n.d.' else c.status }}" title="{{ c.name }}">{{ c.name[:4] }}</span>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

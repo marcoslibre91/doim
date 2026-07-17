@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.venv/
+doim.db
+doim.db-journal

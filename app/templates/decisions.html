@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Decisioni &amp; outcome</h1>
+<div class="warn">Le etichette sono l'asset (§4) — e le certifica una controparte con incentivi contrari (B4):
+registra sempre sia il revenue dichiarato dal network sia quello del tuo tracking. Discrepanza &gt;10% = offerta da squalificare dal campione sperimentale.</div>
+
+<div class="card">
+  <table>
+    <tr><th>Quando</th><th>Opportunità</th><th>Azione</th><th>ROI previsto</th><th>Spend</th><th>Rev. network</th><th>Rev. tracking</th><th>Discrepanza</th><th>ROI reale</th><th>Outcome</th></tr>
+    {% for it in rows %}{% set d = it.r %}
+    <tr {% if d.censored %}style="opacity:.55"{% endif %}>
+      <td>{{ d.created_at[:10] }}</td>
+      <td><a href="/opportunities/{{ d.opportunity_id }}">{{ d.opp_name }}</a></td>
+      <td>{{ d.action }}{% if d.censored %} · <strong>CENSURATA</strong>{% endif %}</td>
+      <td>{{ d.predicted_roi if d.predicted_roi is not none else '—' }}%</td>
+      <td>{{ d.spend if d.spend is not none else '—' }}</td>
+      <td>{{ d.revenue_network if d.revenue_network is not none else '—' }}</td>
+      <td>{{ d.revenue_tracked if d.revenue_tracked is not none else '—' }}</td>
+      <td>{% if it.disc is not none %}{{ '%+.1f' % it.disc }}%{% if it.disc < -10 or it.disc > 10 %} ⚠{% endif %}{% else %}—{% endif %}</td>
+      <td>{% if it.roi is not none %}{{ '%+.1f' % it.roi }}%{% else %}—{% endif %}</td>
+      <td>
+        {% if d.spend is none %}
+        <details><summary>registra</summary>
+          <form class="inline" method="post" action="/decisions/{{ d.id }}/outcome" style="margin-top:.4rem">
+            <label>Spend<input name="spend" type="number" step="any" required></label>
+            <label>Rev. network<input name="revenue_network" type="number" step="any"></label>
+            <label>Rev. tracking<input name="revenue_tracked" type="number" step="any"></label>
+            <label>Incidenti (B8)<input name="incidents" placeholder="ban account, cap..."></label>
+            <label>Censurata<select name="censored"><option value="0">no</option><option value="1">sì</option></select></label>
+            <button class="small">Salva</button>
+          </form>
+        </details>
+        {% else %}{{ d.incidents or '' }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted">Le decisioni si registrano dalla pagina della singola opportunità (con snapshot congelato dei segnali).</p>
+</div>
+{% endblock %}

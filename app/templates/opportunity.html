@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ opp.name }} <span class="muted">— {{ opp.network }} · {{ opp.vertical }} · {{ opp.geo }}</span></h1>
+
+<div class="card">
+  <form class="inline" method="post" action="/opportunities/{{ opp.id }}/state">
+    <label>Stato ciclo di vita
+      <select name="state">{% for s in ['rilevata','osservata','qualificata','allocata','chiusa','morta'] %}
+        <option {% if opp.state==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+    <label>Approvazione (B1)
+      <select name="approval_status">{% for s in ['da_richiedere','richiesta','approvata','rifiutata'] %}
+        <option {% if opp.approval_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+    <button class="small">Aggiorna</button>
+  </form>
+  {% if opp.url %}<p class="muted"><a href="{{ opp.url }}" rel="noopener">{{ opp.url }}</a></p>{% endif %}
+  {% if opp.notes %}<p class="muted">{{ opp.notes }}</p>{% endif %}
+</div>
+
+<h2>Profilo per componenti <span class="muted">(checklist Fase 1 — regole NON validate, §10)</span></h2>
+<div class="grid c3">
+  {% for c in profile %}
+  <div class="card">
+    <strong>{{ c.name }}</strong>
+    <span class="pill {{ 'nd' if c.status == 'n.d.' else c.status }}">{{ c.status }}</span>
+    <ul class="muted" style="padding-left:1.1rem; margin:.5rem 0">
+      {% for i in c.inputs %}<li>{{ i }}</li>{% endfor %}
+    </ul>
+    <details><summary>perché / limiti</summary><p class="muted">{{ c.explanation }}</p></details>
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Serie temporali</h2>
+<div class="card">
+  {% if charts %}
+  <table>
+    <tr><th>Segnale</th><th>Tier</th><th>Andamento</th><th>Ultimo</th><th>Osservato</th><th>N</th></tr>
+    {% for ch in charts %}
+    <tr>
+      <td>{{ ch.signal.key }} <span class="muted">v{{ ch.signal.version }}</span></td>
+      <td><span class="pill nd">{{ ch.signal.tier }}</span></td>
+      <td>{{ ch.svg | safe }}</td>
+      <td>{{ ch.last }}</td><td>{{ ch.last_at[:10] }}</td><td>{{ ch.n }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">Nessuna osservazione ancora.</p>{% endif %}
+</div>
+
+<h2>Nuova osservazione</h2>
+<div class="card">
+  <form class="inline" method="post" action="/opportunities/{{ opp.id }}/observations">
+    <label>Segnale<select name="signal_id">{% for s in signals %}<option value="{{ s.id }}">{{ s.key }} ({{ s.tier }})</option>{% endfor %}</select></label>
+    <label>Valore<input name="value" type="number" step="any"></label>
+    <label>Testo<input name="value_text"></label>
+    <label>Osservato il<input name="observed_at" type="date" value="{{ today }}"></label>
+    <label>Fonte<select name="source_id"><option value="">—</option>{% for s in sources %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+    <button>Registra</button>
+  </form>
+  <p class="muted">Le osservazioni sono append-only: non si correggono, si ri-osserva.</p>
+</div>
+
+<h2>Previsioni su questa opportunità</h2>
+<div class="card">
+  {% if predictions %}
+  <table>
+    <tr><th>Creata</th><th>Previsione</th><th>p</th><th>Scadenza</th><th>Esito</th><th>Brier</th></tr>
+    {% for p in predictions %}
+    <tr><td>{{ p.created_at[:10] }}</td><td>{{ p.statement }}</td>
+        <td>{{ '%.0f' % (p.probability*100) }}%</td><td>{{ p.due_date }}</td>
+        <td>{% if p.resolved %}{{ 'VERO' if p.outcome else 'FALSO' }}{% else %}aperta{% endif %}</td>
+        <td>{{ '%.3f' % p.brier if p.brier is not none else '—' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">Nessuna previsione pre-registrata. Registrane una dal <a href="/predictions">journal</a>.</p>{% endif %}
+</div>
+
+<h2>Decisioni</h2>
+<div class="card">
+  <form class="inline" method="post" action="/opportunities/{{ opp.id }}/decisions">
+    <label>Azione<select name="action"><option>alloca</option><option>controllo</option><option>scarta</option></select></label>
+    <label>ROI previsto % (pre-registrato)<input name="predicted_roi" type="number" step="any"></label>
+    <label style="min-width:280px">Razionale<input name="rationale" placeholder="perché, adesso"></label>
+    <button>Registra decisione</button>
+  </form>
+  <p class="muted">Lo snapshot dei segnali visibili adesso viene congelato con la decisione: il backtesting non potrà barare con informazione futura (§7). Il braccio «controllo» (selezione casuale) è ciò che distingue il segnale dalla tua esecuzione — non saltarlo.</p>
+  {% if decisions %}
+  <table>
+    <tr><th>Quando</th><th>Azione</th><th>ROI previsto</th><th>Razionale</th><th>Outcome</th></tr>
+    {% for d in decisions %}
+    <tr><td>{{ d.created_at[:10] }}</td><td>{{ d.action }}</td>
+        <td>{{ d.predicted_roi if d.predicted_roi is not none else '—' }}%</td>
+        <td>{{ d.rationale }}</td>
+        <td>{% if d.spend is not none %}spend {{ d.spend }} / net {{ d.revenue_network }} / trk {{ d.revenue_tracked }}{% if d.censored %} · <strong>CENSURATA</strong> ({{ d.incidents }}){% endif %}{% else %}—{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+
+<h2>Osservazioni recenti</h2>
+<div class="card">
+  <table>
+    <tr><th>Osservato</th><th>Registrato</th><th>Segnale</th><th>Tier</th><th>Valore</th><th>Fonte</th></tr>
+    {% for o in observations %}
+    <tr><td>{{ o.observed_at[:10] }}</td><td>{{ o.recorded_at[:10] }}</td><td>{{ o.sig }}</td>
+        <td>{{ o.tier }}</td><td>{{ o.value if o.value is not none else o.value_text }}</td><td>{{ o.src_name or '—' }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

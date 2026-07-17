@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOIM — Decision Intelligence</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#6b7686; --line:#e3e7ee;
+          --verde:#1e8e5a; --giallo:#b98a00; --rosso:#c0392b; --nd:#8a94a3; --accent:#2c5fad; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#16233a; color:#fff; padding:.7rem 1.2rem; display:flex; gap:1.4rem; align-items:baseline; flex-wrap:wrap; }
+  header .logo { font-weight:700; letter-spacing:.06em; }
+  header .logo span { color:#7fb0f5; }
+  header nav a { color:#c9d6ea; text-decoration:none; margin-right:1rem; font-size:.92rem; }
+  header nav a:hover { color:#fff; }
+  main { max-width:1150px; margin:1.4rem auto; padding:0 1.2rem; }
+  h1 { font-size:1.35rem; margin:.2rem 0 1rem; }
+  h2 { font-size:1.05rem; margin:1.6rem 0 .6rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1rem 1.2rem; margin-bottom:1rem; }
+  .grid { display:grid; gap:1rem; }
+  .grid.c3 { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th { text-align:left; color:var(--muted); font-weight:600; padding:.35rem .5rem; border-bottom:1px solid var(--line); }
+  td { padding:.4rem .5rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  .pill { display:inline-block; padding:.05rem .55rem; border-radius:99px; font-size:.78rem; font-weight:600; color:#fff; }
+  .pill.verde{background:var(--verde)} .pill.giallo{background:var(--giallo)}
+  .pill.rosso{background:var(--rosso)} .pill.nd{background:var(--nd)}
+  .muted { color:var(--muted); font-size:.86rem; }
+  .kpi { font-size:1.7rem; font-weight:700; }
+  form.inline { display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-end; }
+  label { display:flex; flex-direction:column; font-size:.8rem; color:var(--muted); gap:.15rem; }
+  input,select,textarea { font:inherit; padding:.35rem .5rem; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  button { font:inherit; padding:.4rem .9rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.small { padding:.2rem .6rem; font-size:.8rem; }
+  .warn { background:#fff8e6; border:1px solid #eadfb2; border-radius:8px; padding:.6rem .9rem; font-size:.86rem; margin-bottom:1rem; }
+  details summary { cursor:pointer; color:var(--accent); font-size:.86rem; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DOIM <span>· decision intelligence</span></div>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/opportunities">Opportunità</a>
+    <a href="/predictions">Prediction journal</a>
+    <a href="/decisions">Decisioni &amp; outcome</a>
+    <a href="/hypotheses">Registro ipotesi</a>
+    <a href="/import">Import dati</a>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
