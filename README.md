@@ -25,6 +25,8 @@ Il database è un singolo file SQLite (`doim.db`) — backup = copia del file.
 | Modulo | Cosa fa | Principio dell'analisi |
 |---|---|---|
 | **Opportunità** | registro con ciclo di vita (rilevata → … → morta), stato approvazione, proxy effort, classe compliance | §7, B1, B2, B9 |
+| **Incolla offerte** | copia le righe dal pannello di un network → il sistema riconosce le colonne, pulisce i valori (`$42.00`→42), genera le chiavi e segnala i duplicati con anteprima prima dell'import | riduzione attrito |
+| **Campagne concorrenti (creativi)** | annunci osservati nelle ad library (advertiser, primo avvistamento, longevità, angle); da qui si **derivano** automaticamente densità, longevità e nuovi advertiser dell'opportunità | §9.1, A14, B3 |
 | **Osservazioni** | append-only per trigger SQL (non si aggiornano né cancellano), con doppio tempo *observed_at / recorded_at*, fonte e tier A/B | §7 (bitemporalità), §8 |
 | **Profilo per componenti** | Domanda / Concorrenza / Economics / Durabilità / Fit / Data confidence — ogni semaforo mostra gli input grezzi e dichiara i propri limiti. **Niente punteggio unico**: vietato prima delle etichette | §10 |
 | **Prediction journal** | previsioni pre-registrate con probabilità e scadenza, risoluzione manuale, Brier score, calibrazione sistema vs umano | §7.1, M1, A10 |
@@ -46,9 +48,19 @@ python -m app.connectors
 
 Confine d'uso deliberato: **solo i dati del proprio account, via API ufficiale** — è la
 strategia "fonti con diritto d'accesso stabile" (ipotesi A4), non scraping. Per i network
-senza API: esporta i report CSV dal pannello e importali dalla pagina *Import dati*.
-Dati da fonti manuali (Ad Library, Trends) si registrano in 10 secondi dalla pagina
-dell'opportunità.
+senza API: **copia le offerte dal pannello e incollale** nella pagina *Incolla offerte* (le pulisce
+e ordina da sola), oppure esporta i report CSV. Dati da fonti manuali (Ad Library, Trends) si
+registrano in pochi secondi dalla pagina dell'opportunità.
+
+### Campagne concorrenti e Apify
+
+Gli annunci dei concorrenti dalle ad library si aggiungono a mano (scheda opportunità →
+*Campagne concorrenti*) oppure in bulk via `POST /api/creatives`. Da questi il sistema calcola
+densità e **longevità** — il segnale candidato più forte (A14). Il sistema è **Apify-ready**:
+l'output JSON di un actor «Meta Ad Library» entra direttamente da quell'endpoint. Consiglio del
+comitato: attiva Apify o un'API di terzi (AdSpy/BigSpy) **solo dopo** aver validato a mano che la
+longevità predice qualcosa — prima pagheresti per raccogliere rumore. E mai costruire uno scraper
+proprio: la commodity si compra, lo sforzo va sul collegamento longevità → tuoi risultati.
 
 ## La routine che rende utile lo strumento
 

@@ -12,10 +12,13 @@ from .db import get_conn, init_db
 SOURCES = [
     ("GiddyUp (Everflow API, account proprio)", "affiliate_network", "api_ufficiale", "basso"),
     ("Report CSV network", "affiliate_network", "export_csv", "basso"),
+    ("Incolla offerte (paste)", "affiliate_network", "manuale", "basso"),
     ("Meta Ad Library", "ad_library", "manuale", "medio"),
+    ("Apify (ad library scraper)", "ad_library", "scraping", "medio"),
     ("Google Trends", "trend", "manuale", "basso"),
     ("Sonda micro-spend (proprio)", "probe", "manuale", "basso"),
     ("Tracking proprio (postback)", "own_tracking", "api_ufficiale", "basso"),
+    ("Derivato dai creativi", "derivato", "calcolato", "basso"),
     ("Osservazione manuale", "manuale", "manuale", "basso"),
 ]
 
@@ -84,6 +87,11 @@ HYPOTHESES = [
     ("A13", "La densità osservabile di creativi è un proxy utilizzabile della pressione d'asta reale.",
      "Sonde micro-spend: confrontare CPM misurati con densità osservata per angle × geo (B3).",
      "Correlazione nulla o instabile tra densità e CPM sondato."),
+    ("A14", "La longevità dei creativi di un'offerta predice la sua profittabilità/sopravvivenza futura.",
+     "Studio di sopravvivenza: le offerte con creativi incumbent longevi (60+ giorni) al tempo T "
+     "sopravvivono a T+60/90 più delle altre? Confermato prospetticamente nel prediction journal.",
+     "Nessuna differenza di sopravvivenza tra offerte con creativi longevi e offerte senza, "
+     "out-of-sample e corretto per test multipli."),
 ]
 
 
@@ -137,6 +145,33 @@ def seed_demo(conn):
                 conn.execute(
                     "INSERT INTO observations(opportunity_id,signal_id,value,observed_at,source_id) "
                     "VALUES (?,?,?,?,?)", (oid, sig_ids[skey], round(val, 2), d, src))
+    # creativi demo (per illustrare il layer competitivo e la longevità, A14)
+    src_lib = conn.execute("SELECT id FROM sources WHERE name='Meta Ad Library'").fetchone()["id"]
+    demo_creatives = {
+        "demo-posture-band-us": [
+            ("PostureCo", "video", "angle: dolore schiena", 72, True),
+            ("PostureCo", "image", "angle: prima/dopo", 65, True),
+            ("BackFix Media", "video", "angle: testimonianza", 21, True),
+        ],
+        "demo-pet-groom-kit-us": [
+            ("PetJoy", "video", "angle: cane felice", 12, True),
+            ("QuickDrop LLC", "image", "angle: sconto", 6, False),
+            ("TrendPets", "carousel", "angle: bundle", 4, True),
+        ],
+        "demo-solar-lamp-eu": [
+            ("EcoLight", "video", "angle: risparmio bolletta", 95, True),
+            ("SolarHome", "image", "angle: installazione facile", 40, True),
+        ],
+    }
+    for okey, items in demo_creatives.items():
+        oid = conn.execute("SELECT id FROM opportunities WHERE key=?", (okey,)).fetchone()["id"]
+        for adv, fmt, angle, age, active in items:
+            fs = (date.today() - timedelta(days=age)).isoformat()
+            ls = date.today().isoformat() if active else (date.today() - timedelta(days=2)).isoformat()
+            conn.execute(
+                "INSERT INTO creatives(opportunity_id,advertiser,format,angle,first_seen,last_seen,active,source_id) "
+                "VALUES (?,?,?,?,?,?,?,?)", (oid, adv, fmt, angle, fs, ls, 1 if active else 0, src_lib))
+
     # previsioni demo: una risolta, una aperta
     opp = conn.execute("SELECT id FROM opportunities WHERE key='demo-solar-lamp-eu'").fetchone()["id"]
     conn.execute(

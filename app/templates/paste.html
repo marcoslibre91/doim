@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Incolla offerte</h1>
+<div class="intro">
+  Copia le righe delle offerte dal pannello di GiddyUp (o qualsiasi network) e incollale qui.
+  Il sistema riconosce le colonne, <strong>pulisce</strong> i valori (es. <code>$42.00</code> → 42), genera le chiavi
+  e <strong>segnala i duplicati</strong> prima di importare. Nessun dato entra finché non confermi.
+</div>
+
+{% if step == "input" %}
+<form method="post" action="/paste/preview">
+  <div class="card">
+    <label style="width:100%">Incolla qui (una offerta per riga, colonne separate da tab / virgola / punto e virgola)
+      <textarea name="raw" rows="12" style="width:100%; font-family:ui-monospace,monospace; font-size:.85rem"
+        placeholder="Offer	Network	Payout	Geo&#10;Posture Band	GiddyUp	$42.00	US&#10;Solar Lamp	GiddyUp	28,50	EU"></textarea></label>
+    <label style="flex-direction:row; align-items:center; gap:.4rem; margin-top:.6rem">
+      <input type="checkbox" name="has_header" checked style="width:auto"> La prima riga è l'intestazione</label>
+    <div style="margin-top:1rem"><button>Analizza →</button></div>
+  </div>
+</form>
+
+{% elif step == "preview" %}
+<form method="post">
+  <input type="hidden" name="raw" value="{{ raw }}">
+  {% if has_header %}<input type="hidden" name="has_header" value="on">{% endif %}
+  <div class="card">
+    <h2 style="margin-top:0">Mappa le colonne <span class="tip" data-tip="Dì al sistema cos'è ogni colonna. 'ignora' la scarta. Cambia e ripremi «Aggiorna anteprima».">?</span></h2>
+    <div class="inline">
+      {% for m in mapping %}
+      <label>Colonna {{ loop.index0 + 1 }}{% if header %}<br><span class="muted">«{{ header[loop.index0] }}»</span>{% endif %}
+        <select name="col_{{ loop.index0 }}">
+          {% for f in fields %}<option value="{{ f }}" {% if f == m %}selected{% endif %}>{{ f }}</option>{% endfor %}
+        </select></label>
+      {% endfor %}
+    </div>
+    <div style="margin-top:.8rem">
+      <button formaction="/paste/preview" class="ghost">↻ Aggiorna anteprima</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Anteprima — <span class="pill verde">{{ new_n }} nuove</span>
+      {% if dup_n %}<span class="pill giallo">{{ dup_n }} duplicate (saltate)</span>{% endif %}</h2>
+    {% if rows %}
+    <table>
+      <tr><th>Stato</th><th>Nome</th><th>Network</th><th>Payout</th><th>Verticale</th><th>Geo</th><th>URL</th></tr>
+      {% for r in rows %}
+      <tr {% if r.status == 'duplicata' %}style="opacity:.5"{% endif %}>
+        <td>{% if r.status == 'nuova' %}<span class="pill verde">nuova</span>{% else %}<span class="pill giallo">duplicata</span>{% endif %}</td>
+        <td><strong>{{ r.name }}</strong></td><td>{{ r.network }}</td>
+        <td>{{ '%.2f' % r.payout if r.payout is not none else '—' }}</td>
+        <td>{{ r.vertical }}</td><td>{{ r.geo }}</td>
+        <td class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis">{{ r.url }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="margin-top:1rem; display:flex; gap:.6rem">
+      <button formaction="/paste/commit">✓ Conferma import ({{ new_n }} offerte)</button>
+      <a class="btn ghost" href="/paste">Ricomincia</a>
+    </div>
+    <p class="muted" style="margin-top:.6rem">Il payout riconosciuto viene registrato come prima osservazione. I duplicati (stesso nome o stesso URL di offerte già presenti) vengono saltati per non sporcare lo storico.</p>
+    {% else %}
+    <div class="empty">Nessuna riga riconosciuta. Controlla la mappatura delle colonne o il separatore.</div>
+    {% endif %}
+  </div>
+</form>
+{% endif %}
+{% endblock %}

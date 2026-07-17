@@ -111,6 +111,24 @@ CREATE TABLE IF NOT EXISTS outcomes (
     censored INTEGER NOT NULL DEFAULT 0,  -- 1 = etichetta invalidata da incidente, non conta come fallimento
     measured_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Layer competitivo: singoli annunci osservati nelle ad library (Meta, TikTok, Google...).
+-- Da qui si DERIVANO i segnali dell'opportunità (densità, longevità): non si digitano a mano.
+CREATE TABLE IF NOT EXISTS creatives (
+    id INTEGER PRIMARY KEY,
+    opportunity_id INTEGER NOT NULL REFERENCES opportunities(id),
+    advertiser TEXT,           -- pagina/advertiser che pubblica l'annuncio
+    ad_ref TEXT,               -- id o URL dell'annuncio nella library
+    format TEXT,               -- image | video | carousel...
+    landing_url TEXT,
+    angle TEXT,                -- hook/angolo creativo (osservazione qualitativa)
+    first_seen TEXT,           -- primo avvistamento (dalla library)
+    last_seen TEXT,            -- ultimo avvistamento
+    active INTEGER NOT NULL DEFAULT 1,
+    source_id INTEGER REFERENCES sources(id),
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_cre_opp ON creatives(opportunity_id, active);
 """
 
 
@@ -136,6 +154,71 @@ def latest_observation(conn, opportunity_id, signal_key):
            ORDER BY o.observed_at DESC, o.id DESC LIMIT 1""",
         (opportunity_id, signal_key),
     ).fetchone()
+
+
+def recompute_derived_signals(conn, opportunity_id, on_date=None):
+    """Deriva i segnali dell'opportunità dai creativi osservati e li registra come
+    osservazioni del giorno. Idempotente per data: non duplica lo snapshot se già esiste.
+    Ritorna il dizionario dei valori scritti."""
+    import datetime as _dt
+
+    d = on_date or _dt.date.today().isoformat()
+    cres = conn.execute(
+        "SELECT advertiser, first_seen, last_seen, active FROM creatives WHERE opportunity_id=?",
+        (opportunity_id,),
+    ).fetchall()
+    if not cres:
+        return {}
+
+    def _age(fs, ls, active):
+        try:
+            start = _dt.date.fromisoformat(str(fs)[:10])
+        except (ValueError, TypeError):
+            return None
+        end = _dt.date.today() if active else (
+            _dt.date.fromisoformat(str(ls)[:10]) if ls else _dt.date.today())
+        return (end - start).days
+
+    active = [c for c in cres if c["active"]]
+    ages = [a for a in (_age(c["first_seen"], c["last_seen"], c["active"]) for c in active) if a is not None]
+    recent_adv = set()
+    for c in cres:
+        try:
+            fs = _dt.date.fromisoformat(str(c["first_seen"])[:10])
+            if (_dt.date.today() - fs).days <= 14 and c["advertiser"]:
+                recent_adv.add(c["advertiser"].strip().lower())
+        except (ValueError, TypeError):
+            continue
+
+    values = {
+        "creatives_active_count": float(len(active)),
+        "creative_max_age_days": float(max(ages)) if ages else None,
+        "new_advertisers_14d": float(len(recent_adv)),
+    }
+    src = conn.execute(
+        "SELECT id FROM sources WHERE name LIKE 'Derivato%' LIMIT 1").fetchone()
+    src_id = src["id"] if src else None
+    written = {}
+    for key, val in values.items():
+        if val is None:
+            continue
+        sig = conn.execute(
+            "SELECT id FROM signals WHERE key=? ORDER BY version DESC LIMIT 1", (key,)).fetchone()
+        if not sig:
+            continue
+        # append-only: registra solo se il valore è CAMBIATO rispetto all'ultima osservazione
+        # (evita duplicati inutili ma tiene aggiornato lo snapshot se i creativi cambiano in giornata)
+        last = conn.execute(
+            "SELECT value FROM observations WHERE opportunity_id=? AND signal_id=? "
+            "ORDER BY observed_at DESC, id DESC LIMIT 1",
+            (opportunity_id, sig["id"])).fetchone()
+        if last is not None and last["value"] == val:
+            continue
+        conn.execute(
+            "INSERT INTO observations(opportunity_id,signal_id,value,observed_at,source_id) "
+            "VALUES (?,?,?,?,?)", (opportunity_id, sig["id"], val, d, src_id))
+        written[key] = val
+    return written
 
 
 def series(conn, opportunity_id, signal_key, limit=120):

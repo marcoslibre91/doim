@@ -50,6 +50,93 @@ def redirect(path, flash=None):
     return RedirectResponse(path, status_code=303)
 
 
+# --- Parser "incolla e pulisci" per offerte copiate dai pannelli dei network ----
+PASTE_FIELDS = ["ignora", "name", "network", "payout", "vertical", "geo", "url"]
+_FIELD_HINTS = {
+    "name": ["name", "offer", "offerta", "nome", "title", "prodotto", "product"],
+    "network": ["network", "rete", "source"],
+    "payout": ["payout", "commission", "commissione", "epc", "rate", "amount", "revenue", "cpa"],
+    "vertical": ["vertical", "verticale", "category", "categoria", "niche", "nicchia"],
+    "geo": ["geo", "country", "paese", "region", "regione", "location"],
+    "url": ["url", "link", "landing", "preview"],
+}
+
+
+def _detect_delim(line):
+    for d in ("\t", ";", "|", ","):
+        if d in line:
+            return d
+    return None  # fallback: 2+ spazi
+
+
+def _split(line, delim):
+    if delim is None:
+        return [c.strip() for c in re.split(r"\s{2,}", line.strip()) if c.strip() != ""]
+    return [c.strip() for c in line.split(delim)]
+
+
+def _clean_payout(s):
+    if not s:
+        return None
+    m = re.sub(r"[^0-9.,]", "", s)
+    if not m:
+        return None
+    if "," in m and "." in m:      # 1.234,56 -> 1234.56
+        m = m.replace(".", "").replace(",", ".")
+    elif "," in m:                 # 42,50 -> 42.50
+        m = m.replace(",", ".")
+    try:
+        return float(m)
+    except ValueError:
+        return None
+
+
+def _guess_mapping(header, ncols):
+    mapping = ["ignora"] * ncols
+    used = set()
+    if header:
+        for i, h in enumerate(header):
+            hl = (h or "").lower()
+            for field, hints in _FIELD_HINTS.items():
+                if field in used:
+                    continue
+                if any(k in hl for k in hints):
+                    mapping[i] = field
+                    used.add(field)
+                    break
+    if "name" not in mapping and ncols:      # senza indizi: prima colonna = nome
+        mapping[0] = "name"
+    return mapping
+
+
+def parse_paste(raw, has_header=True, mapping=None):
+    """Ritorna (header, colonne, righe_dict). Deterministico, offline."""
+    lines = [l for l in (raw or "").splitlines() if l.strip()]
+    if not lines:
+        return None, [], []
+    delim = _detect_delim(lines[0])
+    grid = [_split(l, delim) for l in lines]
+    ncols = max(len(r) for r in grid)
+    grid = [r + [""] * (ncols - len(r)) for r in grid]
+    header = grid[0] if has_header else None
+    data = grid[1:] if has_header else grid
+    if not mapping:
+        mapping = _guess_mapping(header, ncols)
+    rows = []
+    for r in data:
+        rec = {"name": "", "network": "", "payout": None, "vertical": "", "geo": "", "url": ""}
+        for i, field in enumerate(mapping):
+            if field == "ignora" or i >= len(r):
+                continue
+            if field == "payout":
+                rec["payout"] = _clean_payout(r[i])
+            else:
+                rec[field] = r[i].strip()
+        if rec["name"]:
+            rows.append(rec)
+    return header, mapping, rows
+
+
 def sparkline(rows, w=180, h=40):
     vals = [r["value"] for r in rows if r["value"] is not None]
     if len(vals) < 2:
@@ -210,10 +297,25 @@ def opportunity_detail(request: Request, oid: int):
         "WHERE d.opportunity_id=? ORDER BY d.created_at DESC", (oid,)
     ).fetchall()
     sources = conn.execute("SELECT * FROM sources ORDER BY name").fetchall()
+    creatives = conn.execute(
+        "SELECT * FROM creatives WHERE opportunity_id=? ORDER BY active DESC, first_seen", (oid,)
+    ).fetchall()
+    cre_view = []
+    for c in creatives:
+        age = None
+        try:
+            start = date.fromisoformat(str(c["first_seen"])[:10])
+            end = date.today() if c["active"] else (
+                date.fromisoformat(str(c["last_seen"])[:10]) if c["last_seen"] else date.today())
+            age = (end - start).days
+        except (ValueError, TypeError):
+            pass
+        cre_view.append({"c": c, "age": age})
     conn.close()
     return render(request, "opportunity.html", opp=opp, profile=profile, summary=summary,
                   charts=charts, observations=observations, predictions=predictions,
-                  decisions=decisions, signals=signals, sources=sources, today=today())
+                  decisions=decisions, signals=signals, sources=sources,
+                  creatives=cre_view, today=today())
 
 
 @app.post("/opportunities/{oid}/state")
@@ -342,6 +444,176 @@ async def import_csv(file: UploadFile):
     conn.close()
     return redirect("/import",
                     flash=f"Import completato: {imported} osservazioni, {skipped} righe saltate.")
+
+
+@app.get("/paste")
+def paste_page(request: Request):
+    return render(request, "paste.html", step="input", fields=PASTE_FIELDS)
+
+
+@app.post("/paste/preview")
+async def paste_preview(request: Request):
+    form = await request.form()
+    raw = form.get("raw", "")
+    has_header = form.get("has_header") == "on"
+    # se l'utente ha già scelto le colonne (ri-anteprima), rispettale
+    mapping = None
+    cols = [k for k in form.keys() if k.startswith("col_")]
+    if cols:
+        n = max(int(k[4:]) for k in cols) + 1
+        mapping = [form.get(f"col_{i}", "ignora") for i in range(n)]
+    header, mapping, rows = parse_paste(raw, has_header, mapping)
+    conn = db.get_conn()
+    existing = {r["k"] for r in conn.execute("SELECT lower(name) k FROM opportunities").fetchall()}
+    existing_urls = {r["u"] for r in conn.execute(
+        "SELECT lower(url) u FROM opportunities WHERE url != ''").fetchall() if r["u"]}
+    conn.close()
+    seen = set()
+    for r in rows:
+        nm = r["name"].strip().lower()
+        url = (r["url"] or "").strip().lower()
+        if nm in existing or (url and url in existing_urls):
+            r["status"] = "duplicata"
+        elif nm in seen:
+            r["status"] = "duplicata"
+        else:
+            r["status"] = "nuova"
+            seen.add(nm)
+    new_n = sum(1 for r in rows if r["status"] == "nuova")
+    return render(request, "paste.html", step="preview", fields=PASTE_FIELDS,
+                  raw=raw, has_header=has_header, header=header, mapping=mapping,
+                  rows=rows, new_n=new_n, dup_n=len(rows) - new_n)
+
+
+@app.post("/paste/commit")
+async def paste_commit(request: Request):
+    form = await request.form()
+    raw = form.get("raw", "")
+    has_header = form.get("has_header") == "on"
+    cols = [k for k in form.keys() if k.startswith("col_")]
+    n = max(int(k[4:]) for k in cols) + 1 if cols else 0
+    mapping = [form.get(f"col_{i}", "ignora") for i in range(n)] if n else None
+    _, _, rows = parse_paste(raw, has_header, mapping)
+    conn = db.get_conn()
+    existing = {r["k"] for r in conn.execute("SELECT lower(name) k FROM opportunities").fetchall()}
+    src = conn.execute("SELECT id FROM sources WHERE name LIKE 'Incolla%'").fetchone()
+    src_id = src["id"] if src else None
+    payout_sig = conn.execute(
+        "SELECT id FROM signals WHERE key='payout_amount' ORDER BY version DESC LIMIT 1").fetchone()["id"]
+    created = 0
+    seen = set()
+    for r in rows:
+        nm = r["name"].strip()
+        if nm.lower() in existing or nm.lower() in seen:
+            continue
+        seen.add(nm.lower())
+        key = unique_key(conn, slugify(nm))
+        cur = conn.execute(
+            "INSERT INTO opportunities(key,name,network,vertical,geo,url,state) "
+            "VALUES (?,?,?,?,?,?, 'rilevata')",
+            (key, nm, r["network"], r["vertical"], r["geo"], r["url"]))
+        oid = cur.lastrowid
+        if r["payout"] is not None:
+            conn.execute(
+                "INSERT INTO observations(opportunity_id,signal_id,value,observed_at,source_id) "
+                "VALUES (?,?,?,?,?)", (oid, payout_sig, r["payout"], today(), src_id))
+        created += 1
+    conn.commit()
+    conn.close()
+    return redirect("/opportunities",
+                    flash=f"{created} offerte importate e ordinate ({len(rows) - created} duplicate saltate).")
+
+
+# --------------------------------------------------------------- creativi
+@app.post("/opportunities/{oid}/creatives")
+def add_creative(oid: int, advertiser: str = Form(""), format: str = Form(""),
+                 angle: str = Form(""), first_seen: str = Form(""),
+                 last_seen: str = Form(""), landing_url: str = Form(""),
+                 ad_ref: str = Form(""), source_id: str = Form("")):
+    conn = db.get_conn()
+    conn.execute(
+        "INSERT INTO creatives(opportunity_id,advertiser,format,angle,first_seen,last_seen,landing_url,ad_ref,source_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (oid, advertiser, format, angle, first_seen or None, last_seen or today(),
+         landing_url, ad_ref, int(source_id) if source_id else None))
+    db.recompute_derived_signals(conn, oid)
+    conn.commit()
+    conn.close()
+    return redirect(f"/opportunities/{oid}",
+                    flash="Creativo aggiunto e segnali (densità, longevità) ricalcolati.")
+
+
+@app.post("/creatives/{cid}/toggle")
+def toggle_creative(cid: int):
+    conn = db.get_conn()
+    row = conn.execute("SELECT opportunity_id, active FROM creatives WHERE id=?", (cid,)).fetchone()
+    if row:
+        conn.execute("UPDATE creatives SET active=?, last_seen=? WHERE id=?",
+                     (0 if row["active"] else 1, today(), cid))
+        db.recompute_derived_signals(conn, row["opportunity_id"])
+        conn.commit()
+        oid = row["opportunity_id"]
+    else:
+        oid = 0
+    conn.close()
+    return redirect(f"/opportunities/{oid}", flash="Stato del creativo aggiornato.")
+
+
+@app.post("/creatives/{cid}/delete")
+def delete_creative(cid: int):
+    conn = db.get_conn()
+    row = conn.execute("SELECT opportunity_id FROM creatives WHERE id=?", (cid,)).fetchone()
+    oid = row["opportunity_id"] if row else 0
+    conn.execute("DELETE FROM creatives WHERE id=?", (cid,))
+    if row:
+        db.recompute_derived_signals(conn, oid)
+    conn.commit()
+    conn.close()
+    return redirect(f"/opportunities/{oid}", flash="Creativo rimosso.")
+
+
+@app.post("/opportunities/{oid}/derive")
+def derive_signals(oid: int):
+    conn = db.get_conn()
+    written = db.recompute_derived_signals(conn, oid)
+    conn.commit()
+    conn.close()
+    msg = ("Segnali derivati aggiornati: " + ", ".join(written)) if written \
+        else "Nessun creativo da cui derivare (o snapshot di oggi già presente)."
+    return redirect(f"/opportunities/{oid}", flash=msg)
+
+
+@app.post("/api/creatives")
+async def api_creatives(request: Request):
+    """Bulk JSON Apify-ready: output di un actor ad-library entra qui.
+    [{opportunity_key, advertiser, ad_ref, format, landing_url, angle, first_seen, last_seen, active, source}]"""
+    payload = await request.json()
+    conn = db.get_conn()
+    imported = skipped = 0
+    touched = set()
+    for row in payload:
+        opp = conn.execute(
+            "SELECT id FROM opportunities WHERE key=?", (row.get("opportunity_key"),)).fetchone()
+        if not opp:
+            skipped += 1
+            continue
+        src_id = None
+        if row.get("source"):
+            s = conn.execute("SELECT id FROM sources WHERE name=?", (row["source"],)).fetchone()
+            src_id = s["id"] if s else None
+        conn.execute(
+            "INSERT INTO creatives(opportunity_id,advertiser,ad_ref,format,landing_url,angle,first_seen,last_seen,active,source_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (opp["id"], row.get("advertiser"), row.get("ad_ref"), row.get("format"),
+             row.get("landing_url"), row.get("angle"), row.get("first_seen"),
+             row.get("last_seen"), int(row.get("active", 1)), src_id))
+        touched.add(opp["id"])
+        imported += 1
+    for oid in touched:
+        db.recompute_derived_signals(conn, oid)
+    conn.commit()
+    conn.close()
+    return JSONResponse({"imported": imported, "skipped": skipped, "opportunities_updated": len(touched)})
 
 
 @app.post("/api/observations")

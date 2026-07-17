@@ -2,8 +2,9 @@
 {% block content %}
 <h1>Import dati</h1>
 <div class="intro">
-  Due modi per far entrare i dati senza digitarli a mano: un <strong>CSV</strong> (utile per i report esportati dai network)
-  o l'<strong>API</strong> per i connettori automatici. I segnali vanno definiti prima a mano (per tenerne stabile il significato); opportunità e fonti mancanti si creano da sole.
+  Tre modi per far entrare i dati senza digitarli a mano: <strong><a href="/paste">Incolla offerte</a></strong> (il più veloce — copia dal pannello del network),
+  un <strong>CSV</strong> (per i report esportati) o l'<strong>API</strong> per i connettori automatici (incluso Apify).
+  I segnali vanno definiti prima a mano (per tenerne stabile il significato); opportunità e fonti mancanti si creano da sole.
 </div>
 
 <div class="card">
@@ -24,5 +25,16 @@
   pannello e riconducili al formato qui sopra.</p>
   <p class="muted">API bulk per connettori: <code>POST /api/observations</code> con lista JSON
   <code>[{"opportunity_key":..., "signal_key":..., "value":..., "observed_at":..., "source":...}]</code>.</p>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Ad library &amp; Apify (creativi concorrenti)</h2>
+  <p class="muted">Gli annunci dei concorrenti si aggiungono a mano dalla scheda di ogni opportunità (sezione
+  <em>Campagne concorrenti</em>), oppure in bulk quando vorrai scalare. Il sistema è <strong>Apify-ready</strong>:
+  l'output JSON di un actor «Meta Ad Library» (o simile) entra direttamente da
+  <code>POST /api/creatives</code>:</p>
+  <p class="muted"><code>[{"opportunity_key":..., "advertiser":..., "first_seen":..., "last_seen":..., "active":true, "format":..., "angle":..., "source":"Apify (ad library scraper)"}]</code></p>
+  <p class="muted">Da questi il sistema calcola da solo densità, longevità e nuovi advertiser. Consiglio del comitato:
+  attiva Apify <strong>solo dopo</strong> aver validato a mano che la longevità predice qualcosa (ipotesi A14) — prima pagheresti per raccogliere rumore.</p>
 </div>
 {% endblock %}
